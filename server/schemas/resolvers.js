@@ -1,27 +1,80 @@
-const { Tech, Matchup } = require('../models');
+const { User } = require("../models");
+const { AuthenticationError } = require("apollo-server-express");
+const { signToken } = require("../utils/auth");
 
 const resolvers = {
   Query: {
-    tech: async () => {
-      return Tech.find({});
-    },
-    matchups: async (parent, { _id }) => {
-      const params = _id ? { _id } : {};
-      return Matchup.find(params);
+    // can we put await after return ?????????????/
+    me: async (parent, args, context) => {
+      if (context.user) {
+        return User.findOne({
+          $or: [
+            { _id: user ? user._id : params.id },
+            { username: params.username },
+          ],
+        });
+      }
+      throw new AuthenticationError("Must be logged in to view this page.");
     },
   },
   Mutation: {
-    createMatchup: async (parent, args) => {
-      const matchup = await Matchup.create(args);
-      return matchup;
+    login: async (parent, { username, email, password }) => {
+      const user = await User.findOne({
+        $or: [{ username: username }, { email: email }],
+      });
+
+      if (!user) {
+        throw new AuthenticationError(
+          "No user found with this username or email address"
+        );
+      }
+
+      const correctPw = await user.isCorrectPassword(password);
+
+      if (!correctPw) {
+        throw new AuthenticationError("Password incorrect");
+      }
+
+      const token = signToken(user);
+
+      return { token, user };
     },
-    createVote: async (parent, { _id, techNum }) => {
-      const vote = await Matchup.findOneAndUpdate(
-        { _id },
-        { $inc: { [`tech${techNum}_votes`]: 1 } },
-        { new: true }
-      );
-      return vote;
+    addUser: async (parent, { username, email, password }) => {
+      const user = await User.create({ username, email, password });
+      const token = signToken(user);
+      return { token, user };
+    },
+    saveBook: async (
+      parent,
+      { authors, description, bookId, image, link, title },
+      context
+    ) => {
+      if (context.user) {
+        const updatedUser = await User.findOneAndUpdate(
+          { _id: context.user._id },
+          {
+            $addToSet: {
+              savedBooks: { authors, description, bookId, image, link, title },
+            },
+          },
+          { new: true, runValidators: true }
+        );
+
+        return updatedUser;
+      }
+      throw new AuthenticationError("Must be logged in to view this page.");
+    },
+    removeBook: async (parent, { bookId }, context) => {
+      if (context.user) {
+        const updatedUser = await User.findOneAndUpdate(
+          { _id: context.user._id },
+          { $pull: { savedBooks: { bookId: bookId } } },
+          { new: true }
+        );
+
+        return updatedUser;
+      }
+      throw new AuthenticationError("Must be logged in to view this page.");
     },
   },
 };
