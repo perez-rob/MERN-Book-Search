@@ -19,9 +19,12 @@ const SavedBooks = () => {
   // const [userData, setUserData] = useState({});
 
   // use this to determine if `useEffect()` hook needs to run again
-  const { loading, data } = useQuery(GET_ME);
+  const { loading, data } = useQuery(GET_ME, {
+    variables: { username: "me" },
+  });
+  console.log("loading!!!", loading);
   const userData = data?.me;
-  const userDataLength = Object.keys(userData).length;
+  // const userDataLength = Object.keys(userData).length;
 
   const [removeBook, { error }] = useMutation(REMOVE_BOOK);
 
@@ -71,7 +74,7 @@ const SavedBooks = () => {
   };
 
   // if data isn't here yet, say so
-  if (!userDataLength) {
+  if (loading) {
     return <h2>LOADING...</h2>;
   }
 
