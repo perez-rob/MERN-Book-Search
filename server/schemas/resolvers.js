@@ -7,12 +7,7 @@ const resolvers = {
     // can we put await after return ?????????????/
     me: async (parent, args, context) => {
       if (context.user) {
-        return User.findOne({
-          $or: [
-            { _id: user ? user._id : params.id },
-            { username: params.username },
-          ],
-        });
+        return User.findOne({ _id: context.user._id }).populate("savedBooks");
       }
       throw new AuthenticationError("Must be logged in to view this page.");
     },
